@@ -88,7 +88,13 @@ async function run() {
       );
       res.send(result);
     });
-
+    //delete a user
+    app.delete("/users/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await usersCollection.deleteOne(filter);
+      res.send(result);
+    });
     // all categories
     app.get("/categories", async (req, res) => {
       const query = {};
@@ -104,6 +110,12 @@ async function run() {
     //all buyers
     app.get("/buyers", async (req, res) => {
       const query = { role: "buyer" };
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    //all Sellers
+    app.get("/sellers", async (req, res) => {
+      const query = { role: "sellers" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });

@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 
@@ -65,6 +65,30 @@ async function run() {
       const categories = await usersCollection.findOne(query);
       res.send(categories);
     });
+    //all users
+    app.get("/users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+    //verify user
+    app.put("/verify-users/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          verified: true,
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      res.send(result);
+    });
+
     // all categories
     app.get("/categories", async (req, res) => {
       const query = {};
@@ -77,12 +101,12 @@ async function run() {
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
-    //all buyers 
-    app.get('/buyers', async (req, res) => { 
-      const query = { role:'buyer' }
+    //all buyers
+    app.get("/buyers", async (req, res) => {
+      const query = { role: "buyer" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
-    })
+    });
   } finally {
   }
 }

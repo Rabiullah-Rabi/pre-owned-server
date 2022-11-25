@@ -77,6 +77,12 @@ async function run() {
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
+    //all buyers 
+    app.get('/buyers', async (req, res) => { 
+      const query = { role:'buyer' }
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    })
   } finally {
   }
 }

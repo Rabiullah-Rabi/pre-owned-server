@@ -52,7 +52,6 @@ async function run() {
         updateDoc,
         options
       );
-      console.log(result);
       // generate jwt token
       const token = jwt.sign(user, process.env.JWT_SECRET, {
         expiresIn: "7d",
@@ -63,15 +62,21 @@ async function run() {
     app.get("/users/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await usersCollection.findOne(query);
-      res.send(result);
+      const categories = await usersCollection.findOne(query);
+      res.send(categories);
     });
     // all categories
-    app.get('/categories', async (req, res) => { 
+    app.get("/categories", async (req, res) => {
       const query = {};
       const result = await categoryCollection.find(query).toArray();
       res.send(result);
-    })
+    });
+    //add product
+    app.post("/products", async (req, res) => {
+      const product = req.body;
+      const result = await productCollection.insertOne(product);
+      res.send(result);
+    });
   } finally {
   }
 }

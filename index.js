@@ -104,9 +104,21 @@ async function run() {
     // Products By Category
     app.get("/categories/:name", async (req, res) => {
       const name = req.params.name;
-      console.log(name);
       const query = { category: name };
       const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    //get products
+    app.get("/products", async (req, res) => {
+      const query = {};
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    //get product details
+    app.get("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await productCollection.findOne(query);
       res.send(result);
     });
     //add product

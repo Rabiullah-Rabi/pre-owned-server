@@ -101,6 +101,14 @@ async function run() {
       const result = await categoryCollection.find(query).toArray();
       res.send(result);
     });
+    // Products By Category
+    app.get("/categories/:name", async (req, res) => {
+      const name = req.params.name;
+      console.log(name);
+      const query = { category: name };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
     //add product
     app.post("/products", async (req, res) => {
       const product = req.body;
@@ -115,7 +123,7 @@ async function run() {
     });
     //all Sellers
     app.get("/sellers", async (req, res) => {
-      const query = { role: "sellers" };
+      const query = { role: "seller" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });

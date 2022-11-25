@@ -10,7 +10,21 @@ const port = process.env.PORT || 1357;
 // middlewares
 app.use(cors());
 app.use(express.json());
-
+//verify jwt
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).send("unauthorized");
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.JWT_SECRET, function (error, decoded) {
+    if (error) {
+      return res.status(403).send("Forbidden");
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
 // Database Connection
 const uri = process.env.DB_URI;
 const client = new MongoClient(uri, {
@@ -21,8 +35,9 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
+    const usersCollection = client.db("pre-owned").collection("users");
     const categoryCollection = client.db("pre-owned").collection("category");
-    const usersCollection = client.db("easy-booking").collection("users");
+    const productCollection = client.db("pre-owned").collection("product");
     // save user info
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -37,15 +52,26 @@ async function run() {
         updateDoc,
         options
       );
-
+      console.log(result);
       // generate jwt token
       const token = jwt.sign(user, process.env.JWT_SECRET, {
-        expiresIn: '7d',
+        expiresIn: "7d",
       });
       res.send({ result, token });
     });
-
-    console.log("MongoDB connected ");
+    //user info by email
+    app.get("/users/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+    // all categories
+    app.get('/categories', async (req, res) => { 
+      const query = {};
+      const result = await categoryCollection.find(query).toArray();
+      res.send(result);
+    })
   } finally {
   }
 }

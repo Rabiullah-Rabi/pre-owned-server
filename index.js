@@ -38,6 +38,7 @@ async function run() {
     const usersCollection = client.db("pre-owned").collection("users");
     const categoryCollection = client.db("pre-owned").collection("category");
     const productCollection = client.db("pre-owned").collection("product");
+    const bookedCollection = client.db("pre-owned").collection("booked-items");
     // save user info
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -139,6 +140,12 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    //save booked items
+    app.post('/booked', async (req, res) => {
+      const product = req.body;
+      const result = await bookedCollection.insertOne(product);
+      res.send(result);
+    })
   } finally {
   }
 }

@@ -3,6 +3,7 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const stripe = require("stripe")(process.env.STRIPE_KEY);
 
 const app = express();
 const port = process.env.PORT || 1357;
@@ -39,6 +40,7 @@ async function run() {
     const categoryCollection = client.db("pre-owned").collection("category");
     const productCollection = client.db("pre-owned").collection("product");
     const bookedCollection = client.db("pre-owned").collection("booked-items");
+    const paymentsCollections = client.db("pre-owned").collection("payments");
     // save user info
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -67,13 +69,13 @@ async function run() {
       res.send(categories);
     });
     //all users
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       const query = {};
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
     //verify user
-    app.put("/verify-users/:id", async (req, res) => {
+    app.put("/verify-users/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
@@ -90,7 +92,7 @@ async function run() {
       res.send(result);
     });
     //delete a user
-    app.delete("/users/:id", async (req, res) => {
+    app.delete("/users/:id", verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const result = await usersCollection.deleteOne(filter);
@@ -110,24 +112,39 @@ async function run() {
       res.send(result);
     });
     //get products
-    app.get("/products", async (req, res) => {
+    app.get("/all-products", async (req, res) => {
       const query = {};
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
     //get product details
-    app.get("/products/:id", async (req, res) => {
+    app.get("/product/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await productCollection.findOne(query);
       res.send(result);
     });
+
     //add product
-    app.post("/products", async (req, res) => {
+    app.post("/products", verifyJWT, async (req, res) => {
       const product = req.body;
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
+    //products of a seller
+    app.get("/products/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { seller_email: email };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+        //delete a user
+        app.delete("/products/:id", verifyJWT, async (req, res) => {
+          const id = req.params.id;
+          const filter = { _id: ObjectId(id) };
+          const result = await productCollection.deleteOne(filter);
+          res.send(result);
+        });
     //all buyers
     app.get("/buyers", async (req, res) => {
       const query = { role: "buyer" };
@@ -140,12 +157,74 @@ async function run() {
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
+    
+    //seller info by email
+    app.get("/seller/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+
     //save booked items
-    app.post('/booked', async (req, res) => {
+    app.post("/booked", verifyJWT, async (req, res) => {
       const product = req.body;
       const result = await bookedCollection.insertOne(product);
       res.send(result);
-    })
+    });
+    //booked items by user
+    app.get("/booked/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { buyer_email: email };
+      const result = await bookedCollection.find(query).toArray();
+      res.send(result);
+    });
+    //Delete booked  item
+    app.delete("/booked/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await bookedCollection.deleteOne(query);
+      res.send(result);
+    });
+    //stripe
+    // app.post("/create-payment-intent", async (req, res) => {
+    //   const booking = req.body;
+    //   const price = booking.price;
+    //   const amount = price * 100;
+    //   const paymentIntent = await stripe.paymentIntents.create({
+    //     currency: "usd",
+    //     amount: amount,
+    //     payment_method_types: ["card"],
+    //   });
+    //   res.send({
+    //     clientSecret: paymentIntent.client_secret,
+    //   });
+    // });
+    // //store payment informations
+    // app.post("/payments", async (req, res) => {
+    //   const payment = req.body;
+    //   console.log(payment);
+    //   const result = await paymentsCollections.insertOne(payment);
+    //   const id = payment.bookingId;
+    //   console.log(payment.transactionId);
+    //   const filter = { _id: ObjectId(id) };
+    //   const updatedDoc = {
+    //     $set: {
+    //       paid: true,
+    //       transactionId: payment.transactionId,
+    //     },
+    //   };
+    //   const updatedProduct = {
+    //     $set: {
+    //       sold: true,
+    //     },
+    //   };
+    //   const updatedResult = await bookedCollection.updateOne(
+    //     filter,
+    //     updatedDoc
+    //   );
+    //   res.send(result);
+    // });
   } finally {
   }
 }

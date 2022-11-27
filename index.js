@@ -26,6 +26,7 @@ function verifyJWT(req, res, next) {
     next();
   });
 }
+
 // Database Connection
 const uri = process.env.DB_URI;
 const client = new MongoClient(uri, {
@@ -41,6 +42,39 @@ async function run() {
     const productCollection = client.db("pre-owned").collection("product");
     const bookedCollection = client.db("pre-owned").collection("booked-items");
     const paymentsCollections = client.db("pre-owned").collection("payments");
+    // Verify admin
+    const verifyAdmin = async (req, res, next) => {
+      console.log(req.decoded);
+      const decodedEmail = req.decoded.email;
+      console.log(decodedEmail);
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "admin") {
+        return res.status(403).send({ message: "Access denied" });
+      }
+      next();
+    };
+    // Verify seller
+    const verifySeller = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      console.log(decodedEmail);
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "seller") {
+        return res.status(403).send({ message: "Access denied" });
+      }
+      next();
+    };
+    // Verify Buyer
+    const verifyBuyer = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "buyer") {
+        return res.status(403).send({ message: "Access denied" });
+      }
+      next();
+    };
     // save user info
     app.put("/user/:email", async (req, res) => {
       const email = req.params.email;
@@ -75,7 +109,7 @@ async function run() {
       res.send(result);
     });
     //verify user
-    app.put("/verify-users/:id", verifyJWT, async (req, res) => {
+    app.put("/verify-users/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
@@ -92,7 +126,7 @@ async function run() {
       res.send(result);
     });
     //delete a user
-    app.delete("/users/:id", verifyJWT, async (req, res) => {
+    app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const result = await usersCollection.deleteOne(filter);
@@ -113,7 +147,7 @@ async function run() {
     });
     //get products
     app.get("/all-products", async (req, res) => {
-      const query = {};
+      const query = { sold: false };
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
@@ -126,38 +160,38 @@ async function run() {
     });
 
     //add product
-    app.post("/products", verifyJWT, async (req, res) => {
+    app.post("/products", verifyJWT,verifySeller, async (req, res) => {
       const product = req.body;
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
     //products of a seller
-    app.get("/products/:email", async (req, res) => {
+    app.get("/products/:email",verifyJWT,verifySeller, async (req, res) => {
       const email = req.params.email;
       const query = { seller_email: email };
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
-        //delete a user
-        app.delete("/products/:id", verifyJWT, async (req, res) => {
-          const id = req.params.id;
-          const filter = { _id: ObjectId(id) };
-          const result = await productCollection.deleteOne(filter);
-          res.send(result);
-        });
+    //delete a A product
+    app.delete("/products/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await productCollection.deleteOne(filter);
+      res.send(result);
+    });
     //all buyers
-    app.get("/buyers", async (req, res) => {
+    app.get("/buyers",verifyJWT,verifyAdmin, async (req, res) => {
       const query = { role: "buyer" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
     //all Sellers
-    app.get("/sellers", async (req, res) => {
+    app.get("/sellers",verifyJWT,verifyAdmin, async (req, res) => {
       const query = { role: "seller" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
-    
+
     //seller info by email
     app.get("/seller/:email", async (req, res) => {
       const email = req.params.email;
@@ -167,20 +201,20 @@ async function run() {
     });
 
     //save booked items
-    app.post("/booked", verifyJWT, async (req, res) => {
+    app.post("/booked", verifyJWT,verifyBuyer, async (req, res) => {
       const product = req.body;
       const result = await bookedCollection.insertOne(product);
       res.send(result);
     });
     //booked items by user
-    app.get("/booked/:email", async (req, res) => {
+    app.get("/booked/:email",verifyJWT,verifyBuyer, async (req, res) => {
       const email = req.params.email;
       const query = { buyer_email: email };
       const result = await bookedCollection.find(query).toArray();
       res.send(result);
     });
     //Delete booked  item
-    app.delete("/booked/:id", verifyJWT, async (req, res) => {
+    app.delete("/booked/:id", verifyJWT,verifyBuyer, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await bookedCollection.deleteOne(query);

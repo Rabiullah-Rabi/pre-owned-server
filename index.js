@@ -41,12 +41,13 @@ async function run() {
     const categoryCollection = client.db("pre-owned").collection("category");
     const productCollection = client.db("pre-owned").collection("product");
     const bookedCollection = client.db("pre-owned").collection("booked-items");
+    const promotionCollection = client
+      .db("pre-owned")
+      .collection("promoted-items");
     const paymentsCollections = client.db("pre-owned").collection("payments");
     // Verify admin
     const verifyAdmin = async (req, res, next) => {
-      console.log(req.decoded);
       const decodedEmail = req.decoded.email;
-      console.log(decodedEmail);
       const query = { email: decodedEmail };
       const user = await usersCollection.findOne(query);
       if (user?.role !== "admin") {
@@ -57,7 +58,6 @@ async function run() {
     // Verify seller
     const verifySeller = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
-      console.log(decodedEmail);
       const query = { email: decodedEmail };
       const user = await usersCollection.findOne(query);
       if (user?.role !== "seller") {
@@ -148,7 +148,10 @@ async function run() {
     //get products
     app.get("/all-products", async (req, res) => {
       const query = { sold: false };
-      const result = await productCollection.find(query).toArray();
+      const result = await productCollection
+        .find(query)
+        .sort({ published_date: -1 })
+        .toArray();
       res.send(result);
     });
     //get product details
@@ -160,16 +163,50 @@ async function run() {
     });
 
     //add product
-    app.post("/products", verifyJWT,verifySeller, async (req, res) => {
+    app.post("/products", verifyJWT, verifySeller, async (req, res) => {
       const product = req.body;
       const result = await productCollection.insertOne(product);
       res.send(result);
     });
     //products of a seller
-    app.get("/products/:email",verifyJWT,verifySeller, async (req, res) => {
+    app.get("/products/:email", verifyJWT, verifySeller, async (req, res) => {
       const email = req.params.email;
       const query = { seller_email: email };
       const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    //advertisement
+    app.put("/products/:id", verifyJWT, verifySeller, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updateDoc = {
+        $set: {
+          advertisement: true,
+        },
+      };
+      const result = await productCollection.updateOne(
+        filter,
+        updateDoc,
+        options
+      );
+      //save to collection
+      // const promotedItems = await productCollection
+      //   .find({
+      //     advertisement: true,
+      //   })
+      //   .toArray();
+      // console.log(promotedItems);
+      // const addToCollection = await promotionCollection.insertMany(
+      //   promotedItems
+      // );
+
+      res.send(result);
+    });
+    // api for advertisement products
+    app.get("/advertisement", async (req, res) => {
+      const filter = { advertisement: true };
+      const result = await productCollection.find(filter).sort({ published_date: -1 }).toArray();
       res.send(result);
     });
     //delete a A product
@@ -180,13 +217,13 @@ async function run() {
       res.send(result);
     });
     //all buyers
-    app.get("/buyers",verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/buyers", verifyJWT, verifyAdmin, async (req, res) => {
       const query = { role: "buyer" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
     });
     //all Sellers
-    app.get("/sellers",verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/sellers", verifyJWT, verifyAdmin, async (req, res) => {
       const query = { role: "seller" };
       const result = await usersCollection.find(query).toArray();
       res.send(result);
@@ -201,20 +238,20 @@ async function run() {
     });
 
     //save booked items
-    app.post("/booked", verifyJWT,verifyBuyer, async (req, res) => {
+    app.post("/booked", verifyJWT, verifyBuyer, async (req, res) => {
       const product = req.body;
       const result = await bookedCollection.insertOne(product);
       res.send(result);
     });
     //booked items by user
-    app.get("/booked/:email",verifyJWT,verifyBuyer, async (req, res) => {
+    app.get("/booked/:email", verifyJWT, verifyBuyer, async (req, res) => {
       const email = req.params.email;
       const query = { buyer_email: email };
       const result = await bookedCollection.find(query).toArray();
       res.send(result);
     });
     //Delete booked  item
-    app.delete("/booked/:id", verifyJWT,verifyBuyer, async (req, res) => {
+    app.delete("/booked/:id", verifyJWT, verifyBuyer, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) };
       const result = await bookedCollection.deleteOne(query);

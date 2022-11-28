@@ -141,7 +141,10 @@ async function run() {
     // Products By Category
     app.get("/categories/:name", async (req, res) => {
       const name = req.params.name;
-      const query = { category: name };
+      const query = {
+        category: name,
+        // sold: false,
+      };
       const result = await productCollection.find(query).toArray();
       res.send(result);
     });
@@ -190,6 +193,7 @@ async function run() {
         updateDoc,
         options
       );
+
       //save to collection
       // const promotedItems = await productCollection
       //   .find({
@@ -206,7 +210,10 @@ async function run() {
     // api for advertisement products
     app.get("/advertisement", async (req, res) => {
       const filter = { advertisement: true };
-      const result = await productCollection.find(filter).sort({ published_date: -1 }).toArray();
+      const result = await productCollection
+        .find(filter)
+        .sort({ published_date: -1 })
+        .toArray();
       res.send(result);
     });
     //delete a A product
@@ -237,17 +244,54 @@ async function run() {
       res.send(result);
     });
 
+    //Reported  items
+    app.put("/reported", verifyJWT, verifyBuyer, async (req, res) => {
+      const product = req.body;
+      const result = await productCollection.updateOne(
+        { _id: ObjectId(product._id) },
+        { $set: { reported: true } }
+        // {upsert: true}
+      );
+      console.log(result);
+      res.send(result);
+    });
+    //Get Reported Items
+    app.get("/reported", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = { reported: true };
+      const result = await productCollection.find(query).toArray();
+      res.send(result);
+    });
+    //delete reported Items
+    app.delete("/reported/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const result = await productCollection.deleteOne(filter);
+      res.send(result);
+    });
     //save booked items
     app.post("/booked", verifyJWT, verifyBuyer, async (req, res) => {
       const product = req.body;
       const result = await bookedCollection.insertOne(product);
+      const updatedproductCollection = await productCollection.updateOne(
+        { _id: ObjectId(product.product_id) },
+        { $set: { booked: true } },
+        { upsert: true }
+      );
       res.send(result);
     });
     //booked items by user
-    app.get("/booked/:email", verifyJWT, verifyBuyer, async (req, res) => {
+    app.get("/booked/:email", async (req, res) => {
       const email = req.params.email;
       const query = { buyer_email: email };
       const result = await bookedCollection.find(query).toArray();
+      res.send(result);
+    });
+    //booked items by user
+    app.get("/booked-item/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id);
+      const query = { _id: ObjectId(id) };
+      const result = await bookedCollection.findOne(query);
       res.send(result);
     });
     //Delete booked  item
@@ -258,44 +302,56 @@ async function run() {
       res.send(result);
     });
     //stripe
-    // app.post("/create-payment-intent", async (req, res) => {
-    //   const booking = req.body;
-    //   const price = booking.price;
-    //   const amount = price * 100;
-    //   const paymentIntent = await stripe.paymentIntents.create({
-    //     currency: "usd",
-    //     amount: amount,
-    //     payment_method_types: ["card"],
-    //   });
-    //   res.send({
-    //     clientSecret: paymentIntent.client_secret,
-    //   });
-    // });
+    app.post("/create-payment-intent", async (req, res) => {
+      const booking = req.body;
+      const price = booking.resell_Price;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      // console.log(paymentIntent);
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
     // //store payment informations
-    // app.post("/payments", async (req, res) => {
-    //   const payment = req.body;
-    //   console.log(payment);
-    //   const result = await paymentsCollections.insertOne(payment);
-    //   const id = payment.bookingId;
-    //   console.log(payment.transactionId);
-    //   const filter = { _id: ObjectId(id) };
-    //   const updatedDoc = {
-    //     $set: {
-    //       paid: true,
-    //       transactionId: payment.transactionId,
-    //     },
-    //   };
-    //   const updatedProduct = {
-    //     $set: {
-    //       sold: true,
-    //     },
-    //   };
-    //   const updatedResult = await bookedCollection.updateOne(
-    //     filter,
-    //     updatedDoc
-    //   );
-    //   res.send(result);
-    // });
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollections.insertOne(payment);
+      const id = payment.product_id;
+      const filter = { product_id: id };
+      const updatedDoc = {
+        $set: {
+          paid: true,
+          transactionId: payment.transactionId,
+        },
+      };
+      const updatedResult = await paymentsCollections.updateOne(
+        filter,
+        updatedDoc
+      );
+      // console.log(updatedResult);
+      const updatedPaid = {
+        $set: {
+          paid: true,
+        },
+      };
+      // console.log(payment);
+      const updatedBookedCollection = await bookedCollection.updateOne(
+        filter,
+        updatedPaid
+        // {upsert: true}
+      );
+      const updatedproductCollection = await productCollection.updateOne(
+        { _id: ObjectId(id) },
+        { $set: { sold: true } }
+        // {upsert: true}
+      );
+      console.log(updatedproductCollection);
+      res.send(updatedResult);
+    });
   } finally {
   }
 }

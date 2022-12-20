@@ -28,7 +28,9 @@ function verifyJWT(req, res, next) {
 }
 
 // Database Connection
-const uri = process.env.DB_URI;
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.o9ekdiy.mongodb.net/?retryWrites=true&w=majority`
+console.log(uri);
+// const uri = process.env.DB_URI;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -41,9 +43,7 @@ async function run() {
     const categoryCollection = client.db("pre-owned").collection("category");
     const productCollection = client.db("pre-owned").collection("product");
     const bookedCollection = client.db("pre-owned").collection("booked-items");
-    const promotionCollection = client
-      .db("pre-owned")
-      .collection("promoted-items");
+    const promotionCollection = client.db("pre-owned").collection("promoted-items");
     const paymentsCollections = client.db("pre-owned").collection("payments");
     // Verify admin
     const verifyAdmin = async (req, res, next) => {
@@ -151,10 +151,20 @@ async function run() {
     //get products
     app.get("/all-products", async (req, res) => {
       const query = { sold: false };
+      // console.log(result);
       const result = await productCollection
         .find(query)
         .sort({ published_date: -1 })
         .toArray();
+      res.send(result);
+    });
+    //get products admin
+    app.get("/all-products-admin",verifyJWT,verifyAdmin, async (req, res) => {
+      const result = await productCollection
+        .find({})
+        .sort({ published_date: -1 })
+        .toArray();
+      console.log(result);
       res.send(result);
     });
     //get product details
